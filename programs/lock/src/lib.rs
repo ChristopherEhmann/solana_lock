@@ -4,41 +4,62 @@ declare_id!("E41ZWCPjxsHmAv6DhUdfduj8W2bt7VCnq4RiypAL1RYc");
 
 #[program]
 pub mod lock {
-    use anchor_lang::solana_program::system_instruction::transfer;
+    use anchor_lang::solana_program::{
+        program::{invoke, invoke_signed},
+        system_instruction::transfer, lamports,
+    };
 
     use super::*;
-    pub fn initialize(
-        ctx: Context<Initialize>,
-        bump: u8,
-        authority: Pubkey,
-        lamports: u64
-        ) -> ProgramResult {
+    pub fn initialize(ctx: Context<Initialize>, bump: u8, authority: Pubkey) -> ProgramResult {
         let lock_account = &mut ctx.accounts.lock_account;
         lock_account.authority = authority;
         lock_account.owner = *ctx.accounts.owner.key;
         lock_account.locked = true;
-        lock_account.lamports = lamports;
-        transfer(&lock_account.owner, &lock_account.to_account_info().key, lock_account.lamports);
+        lock_account.bump = bump;
+        msg!("Upgraded");
         Ok(())
     }
-    pub fn unlock(
-        ctx: Context<Initialize>
-        ) -> ProgramResult {
+    pub fn unlock(ctx: Context<Unlock>) -> ProgramResult {
         let lock_account = &mut ctx.accounts.lock_account;
         lock_account.locked = false;
         Ok(())
     }
-    pub fn withdraw(
-        ctx: Context<Initialize>
-        ) -> ProgramResult {
+    pub fn withdraw(ctx: Context<Withdraw>, lamports: u64) -> ProgramResult {
         let lock_account = &mut ctx.accounts.lock_account;
-        transfer(&lock_account.to_account_info().key, &lock_account.owner, lock_account.lamports);
-        Ok(())
+        let transfer_instruction = &transfer(
+            &lock_account.to_account_info().key,
+            &lock_account.owner,
+            lamports
+        );
+        invoke_signed(
+            transfer_instruction,
+            &[
+                lock_account.to_account_info(),
+                ctx.accounts.owner.to_account_info(),
+            ],
+            &[&[
+                ctx.accounts.owner.to_account_info().key.as_ref(),
+                &[lock_account.bump],
+            ]],
+        )
     }
 
-
-
-    
+    pub fn payin(ctx: Context<Payin>, lamports: u64) -> ProgramResult {
+        let lock_account = &mut ctx.accounts.lock_account;
+        let transfer_instruction = &transfer(
+            &lock_account.owner,
+            &lock_account.to_account_info().key,
+            lamports,
+        );
+        msg!("Paying in {}", lamports );
+        invoke(
+            transfer_instruction,
+            &[
+                ctx.accounts.owner.to_account_info(), //payer
+                lock_account.to_account_info(), //recipient                
+            ],
+        )
+    }
 }
 
 #[derive(Accounts)]
@@ -46,7 +67,7 @@ pub mod lock {
 pub struct Initialize<'info> {
     #[account(init,
     payer=owner,
-    space=8 + 8 + 32 + 32 + 1 + 1 ,
+    space=8 + 32 + 32 + 1 + 1 ,
     seeds=[owner.key().as_ref()],
     bump=bump)
     ]
@@ -55,14 +76,12 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-
 #[derive(Accounts)]
 pub struct Unlock<'info> {
     #[account(has_one = authority)]
     pub lock_account: Account<'info, LockAccount>,
     #[account(signer)]
-    pub authority: AccountInfo<'info>
-
+    pub authority: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
@@ -70,14 +89,21 @@ pub struct Withdraw<'info> {
     #[account(constraint = !lock_account.locked)]
     pub lock_account: Account<'info, LockAccount>,
     #[account(signer)]
-    pub owner: AccountInfo<'info>
+    pub owner: AccountInfo<'info>,
+}
 
+#[derive(Accounts)]
+pub struct Payin<'info> {
+    #[account(has_one = owner)]
+    pub lock_account: Account<'info, LockAccount>,
+    #[account(signer)]
+    pub owner: AccountInfo<'info>,
 }
 
 #[account]
 pub struct LockAccount {
-    pub lamports: u64,
     pub owner: Pubkey,
     pub authority: Pubkey,
-    pub locked: bool
+    pub locked: bool,
+    bump: u8,
 }

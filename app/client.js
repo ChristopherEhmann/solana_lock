@@ -42,7 +42,7 @@ class AnchorClient {
 		const tx = await this.program.rpc.initialize(		
 			bump,	
 			authority.publicKey,
-			new BN(anchor.web3.LAMPORTS_PER_SOL),
+			//new BN(anchor.web3.LAMPORTS_PER_SOL),
 			{
 			accounts: {
 				lockAccount: lock_account, // publickey for our new account
@@ -58,6 +58,58 @@ class AnchorClient {
 		return lock_account;
 	}
 
+	async payin( lock_account_pda) {
+
+		const tx = await this.program.rpc.payin(	
+			new BN(anchor.web3.LAMPORTS_PER_SOL),
+			{
+			accounts: {
+				lockAccount: lock_account_pda, // publickey for our new account
+				owner: this.provider.wallet.publicKey, 
+				systemProgram: SystemProgram.programId // just for Anchor reference
+			},
+			signers: [this.provider.wallet.keypair]// acc must sign this Tx, to prove we have the private key too
+		});
+
+		console.log(
+			`Successfully payed in lock ID: ${lock_account_pda}`
+		);
+	}
+
+	async unlock( lock_account_pda, authority) {
+
+		const tx = await this.program.rpc.unlock(		
+			{
+			accounts: {
+				lockAccount: lock_account_pda, // publickey for our new account
+				authority: authority.publicKey, // publickey of our anchor wallet provider
+				systemProgram: SystemProgram.programId // just for Anchor reference
+			},
+			signers: [authority]// acc must sign this Tx, to prove we have the private key too
+		});
+
+		console.log(
+			`Successfully unlocked lock ID: ${lock_account_pda} with authority ${authority.publicKey}`
+		);
+	}
+
+	async withdraw( lock_account_pda) {
+
+
+		const tx = await this.program.rpc.withdraw(		
+			{
+			accounts: {
+				lockAccount: lock_account_pda, // publickey for our new account
+				owner: this.provider.wallet.publicKey, 
+				systemProgram: SystemProgram.programId // just for Anchor reference
+			},
+			signers: [this.provider.wallet]// acc must sign this Tx, to prove we have the private key too
+		});
+
+		console.log(
+			`Successfully unlocked lock ID: ${lock_account} with authority ${authority.publicKey}`
+		);
+	}
 	}
 
 var args = process.argv.slice(2);
@@ -77,11 +129,17 @@ if (args[0] === "initialize") {
 	})()
 }
 else if (args[0] === "unlock") {
-
-
 	lock_pubkey = args[3]
-	
-	//client.increment(counter_account)
-
+	client.unlock(lock_pubkey, authority_keypair)
 }
+
+else if (args[0] === "withdraw") {
+	lock_pubkey = args[3]
+	client.unlock(lock_pubkey, authority_keypair)
+}
+else if (args[0] === "payin") {
+	lock_pubkey = args[3]
+	client.payin(lock_pubkey)
+}
+
 
