@@ -2,7 +2,8 @@
 // import the Anchor library
 const anchor = require('@project-serum/anchor');
 // Read the generated IDL
-const idl = require('../target/idl/counter.json')
+const idl = require('../target/idl/lock.json')
+const BN = require('bn.js');
 
 const { SystemProgram } = anchor.web3; // Added to initialize account
 const fs = require('fs');
@@ -13,7 +14,7 @@ const opts = {
 	commitment: 'recent'
 };
 
-const PROGRAM_ID = "EoEc5iBooPKP59dygQk95hXVyLq4XEP4eANCFvpF4iQx";
+const PROGRAM_ID = "E41ZWCPjxsHmAv6DhUdfduj8W2bt7VCnq4RiypAL1RYc";
 
 class AnchorClient {
 	// you can make an anchor program without a provider
@@ -29,91 +30,58 @@ class AnchorClient {
 		this.program = new anchor.Program(idl, this.programId, this.provider);
 	}
 
-	async initialize() {
-		// generate an address (PublciKey) for this new account
-		let counter_account = anchor.web3.Keypair.generate(); // blogAccount is type Keypair
-		//const utf8encoded = Buffer.from(bio);
+	async initialize( authority) {
+		const [lock_account, bump] = await anchor.web3.PublicKey.findProgramAddress(
+			[this.provider.wallet.publicKey.toBuffer()],
+			this.program.programId
+		  )		//const utf8encoded = Buffer.from(bio);
 		// Execute the RPC call
-
-		const tx = await this.program.rpc.initialize({
-			// Pass in all the accounts needed
+		console.log(this.provider.wallet.publicKey.toBuffer())
+		console.log(bump)
+		console.log(lock_account)
+		const tx = await this.program.rpc.initialize(		
+			bump,	
+			authority.publicKey,
+			new BN(anchor.web3.LAMPORTS_PER_SOL),
+			{
 			accounts: {
-				counterAccount: counter_account.publicKey, // publickey for our new account
-				authority: this.provider.wallet.publicKey, // publickey of our anchor wallet provider
+				lockAccount: lock_account, // publickey for our new account
+				owner: this.provider.wallet.publicKey, // publickey of our anchor wallet provider
 				systemProgram: SystemProgram.programId // just for Anchor reference
 			},
-			signers: [counter_account] // acc must sign this Tx, to prove we have the private key too
+			signers: [this.provider.wallet.keypair]// acc must sign this Tx, to prove we have the private key too
 		});
 
 		console.log(
-			`Successfully intialized Counter ID: ${counter_account.publicKey} for user ${this.provider.wallet.publicKey}`
+			`Successfully intialized lock ID: ${lock_account} for user ${this.provider.wallet.publicKey}`
 		);
-		return counter_account;
-	}
-	async count(counter_pubkey) {
-		const account = await this.program.account.counterAccount.fetch(counter_pubkey);
-		console.log(account.counter)
-	}
-	async count(counter_pubkey) {
-		const account = await this.program.account.counterAccount.fetch(counter_pubkey);
-		console.log(account.counter)
-	}
-	async authority(counter_pubkey) {
-		const account = await this.program.account.counterAccount.fetch(counter_pubkey);
-		console.log(account.authority.toString())
+		return lock_account;
 	}
 
-	async increment(counter_account) {
-		const tx = await this.program.rpc.increment({
-			// Pass in all the accounts needed
-			accounts: {
-				counterAccount: counter_account.publicKey, // publickey for our new account
-				authority: this.provider.wallet.publicKey // publickey of our anchor wallet provider
-
-			},
-			signers: [this.provider.wallet.keypair] // acc must sign this Tx, to prove we have the private key too
-		});
-		console.log(
-			`Successfully increased Counter ID: ${counter_account.publicKey} for user ${this.provider.wallet.publicKey}`
-		);
 	}
-
-
-}
 
 var args = process.argv.slice(2);
-keypair_file = args[1]
-const secretKey = Uint8Array.from(require(keypair_file));
-const keypair = anchor.web3.Keypair.fromSecretKey(secretKey);
-client = new AnchorClient(PROGRAM_ID, keypair)
+keypair_file_owner = args[1]
+keypair_file_authority= args[2]
+
+const owner_secretKey = Uint8Array.from(require(keypair_file_owner));
+const owner_keypair = anchor.web3.Keypair.fromSecretKey(owner_secretKey);
+const authority_secretKey = Uint8Array.from(require(keypair_file_authority));
+const authority_keypair = anchor.web3.Keypair.fromSecretKey(authority_secretKey);
+
+client = new AnchorClient(PROGRAM_ID, owner_keypair)
 
 if (args[0] === "initialize") {
 	(async () => {
-		account = await client.initialize()
-		account_path = path.join(path.dirname(keypair_file), path.basename(keypair_file).split(".")[0] + "_counter.json")
-		fs.writeFile(account_path, "[" + account.secretKey.toString() + "]", (err) => {
-			if (err) {
-				throw err;
-			}
-			console.log("Account is saved.");
-		})
+		account = await client.initialize(authority_keypair)
 	})()
 }
-else if (args[0] === "increment") {
+else if (args[0] === "unlock") {
 
-	account_secretKey = Uint8Array.from(require(args[2]));
-	const counter_account = anchor.web3.Keypair.fromSecretKey(account_secretKey);
-	client.increment(counter_account)
 
-}
-else if (args[0] === "count") {
+	lock_pubkey = args[3]
+	
+	//client.increment(counter_account)
 
-	pubkey = keypair.publicKey
-	client.count(pubkey)
-}
-else if (args[0] === "authority") {
-
-	pubkey = keypair.publicKey
-	client.authority(pubkey)
 }
 
