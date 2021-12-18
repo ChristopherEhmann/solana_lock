@@ -59,7 +59,6 @@ class AnchorClient {
 	}
 
 	async payin( lock_account_pda) {
-
 		const tx = await this.program.rpc.payin(	
 			new BN(anchor.web3.LAMPORTS_PER_SOL),
 			{
@@ -70,14 +69,12 @@ class AnchorClient {
 			},
 			signers: [this.provider.wallet.keypair]// acc must sign this Tx, to prove we have the private key too
 		});
-
 		console.log(
 			`Successfully payed in lock ID: ${lock_account_pda}`
 		);
 	}
 
 	async unlock( lock_account_pda, authority) {
-
 		const tx = await this.program.rpc.unlock(		
 			{
 			accounts: {
@@ -87,15 +84,12 @@ class AnchorClient {
 			},
 			signers: [authority]// acc must sign this Tx, to prove we have the private key too
 		});
-
 		console.log(
 			`Successfully unlocked lock ID: ${lock_account_pda} with authority ${authority.publicKey}`
 		);
 	}
 
 	async withdraw( lock_account_pda) {
-
-
 		const tx = await this.program.rpc.withdraw(		
 			{
 			accounts: {
@@ -105,7 +99,6 @@ class AnchorClient {
 			},
 			signers: [this.provider.wallet]// acc must sign this Tx, to prove we have the private key too
 		});
-
 		console.log(
 			`Successfully unlocked lock ID: ${lock_account} with authority ${authority.publicKey}`
 		);
@@ -135,7 +128,7 @@ else if (args[0] === "unlock") {
 
 else if (args[0] === "withdraw") {
 	lock_pubkey = args[3]
-	client.unlock(lock_pubkey, authority_keypair)
+	client.withdraw(lock_pubkey)
 }
 else if (args[0] === "payin") {
 	lock_pubkey = args[3]

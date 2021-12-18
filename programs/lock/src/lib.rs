@@ -56,7 +56,8 @@ pub mod lock {
             transfer_instruction,
             &[
                 ctx.accounts.owner.to_account_info(), //payer
-                lock_account.to_account_info(), //recipient                
+                lock_account.to_account_info(), //recipient     
+                ctx.accounts.system_program.to_account_info(), //payer
             ],
         )
     }
@@ -94,10 +95,12 @@ pub struct Withdraw<'info> {
 
 #[derive(Accounts)]
 pub struct Payin<'info> {
-    #[account(has_one = owner)]
+    #[account(mut, has_one = owner)]
     pub lock_account: Account<'info, LockAccount>,
     #[account(signer)]
     pub owner: AccountInfo<'info>,
+    pub system_program: Program<'info, System>
+
 }
 
 #[account]
