@@ -23,7 +23,6 @@ class AnchorClient {
 	constructor(programId, keypair) {
 		this.programId = programId;
 		this.connection = new anchor.web3.Connection("http://127.0.0.1:8899", 'confirmed');
-		console.log('\n\nConnected to', "http://127.0.0.1:8899");
 		const wallet = new anchor.Wallet(keypair)
 		// maps anchor calls to Phantom direction
 		this.provider = new anchor.Provider(this.connection, wallet, opts);
@@ -36,8 +35,6 @@ class AnchorClient {
 			this.program.programId
 		  )		//const utf8encoded = Buffer.from(bio);
 		// Execute the RPC call
-		console.log(this.provider.wallet.publicKey.toBuffer())
-		console.log(bump)
 		console.log(lock_account)
 		const tx = await this.program.rpc.initialize(		
 			bump,	
@@ -73,7 +70,22 @@ class AnchorClient {
 			`Successfully payed in lock ID: ${lock_account_pda}`
 		);
 	}
-
+	async withdraw( lock_account_pda) {
+		const tx = await this.program.rpc.withdraw(		
+			new BN(anchor.web3.LAMPORTS_PER_SOL),
+			{
+			accounts: {
+				lockAccount: lock_account_pda, // publickey for our new account
+				owner: this.provider.wallet.publicKey, 
+				lockProgram: lock_account_pda ,// just for Anchor reference,
+				systemProgram: SystemProgram.programId // just for Anchor reference
+			},
+			signers: [this.provider.wallet.keypair]// acc must sign this Tx, to prove we have the private key too
+		});
+		console.log(
+			`Successfully withdraw from lock ID: ${lock_account_pda}`
+		);
+	}
 	async unlock( lock_account_pda, authority) {
 		const tx = await this.program.rpc.unlock(		
 			{
@@ -88,21 +100,34 @@ class AnchorClient {
 			`Successfully unlocked lock ID: ${lock_account_pda} with authority ${authority.publicKey}`
 		);
 	}
-
-	async withdraw( lock_account_pda) {
-		const tx = await this.program.rpc.withdraw(		
+	async lock( lock_account_pda, authority) {
+		const tx = await this.program.rpc.lock(		
 			{
 			accounts: {
 				lockAccount: lock_account_pda, // publickey for our new account
-				owner: this.provider.wallet.publicKey, 
+				authority: authority.publicKey, // publickey of our anchor wallet provider
 				systemProgram: SystemProgram.programId // just for Anchor reference
 			},
-			signers: [this.provider.wallet]// acc must sign this Tx, to prove we have the private key too
+			signers: [authority]// acc must sign this Tx, to prove we have the private key too
 		});
 		console.log(
-			`Successfully unlocked lock ID: ${lock_account} with authority ${authority.publicKey}`
+			`Successfully locked lock ID: ${lock_account_pda} with authority ${authority.publicKey}`
 		);
 	}
+	async getInfo( lock_account_pda) {
+		const account = await this.program.account.lockAccount.fetch(lock_account_pda);
+		console.log(
+			account
+		);
+		const account_info = await this.connection.getAccountInfo( new anchor.web3.PublicKey(lock_account_pda));
+		console.log(
+			account_info
+		);
+	}
+	
+
+
+
 	}
 
 var args = process.argv.slice(2);
@@ -125,6 +150,10 @@ else if (args[0] === "unlock") {
 	lock_pubkey = args[3]
 	client.unlock(lock_pubkey, authority_keypair)
 }
+else if (args[0] === "lock") {
+	lock_pubkey = args[3]
+	client.lock(lock_pubkey, authority_keypair)
+}
 
 else if (args[0] === "withdraw") {
 	lock_pubkey = args[3]
@@ -134,5 +163,11 @@ else if (args[0] === "payin") {
 	lock_pubkey = args[3]
 	client.payin(lock_pubkey)
 }
+else if (args[0] === "info") {
+	lock_pubkey = args[3]
+	client.getInfo(lock_pubkey)
+}
+
+
 
 
