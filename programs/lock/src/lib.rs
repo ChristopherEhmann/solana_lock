@@ -18,7 +18,6 @@ pub mod lock {
         lock_account.owner = *ctx.accounts.owner.key;
         lock_account.locked = true;
         lock_account.bump = bump;
-        msg!("Upgraded");
         Ok(())
     }
     pub fn unlock(ctx: Context<Unlock>) -> ProgramResult {
@@ -43,8 +42,9 @@ pub mod lock {
         invoke_signed(
             transfer_instruction,
             &[
+                lock_account.to_account_info(),
                 ctx.accounts.owner.to_account_info(),
-                ctx.accounts.lockProgram.to_account_info(),
+                ctx.accounts.system_program.to_account_info()
             ],
             &[&[
                 ctx.accounts.owner.to_account_info().key.as_ref(),
@@ -64,10 +64,9 @@ pub mod lock {
         invoke(
             transfer_instruction,
             &[
-                ctx.accounts.owner.to_account_info(),          //payer
-                lock_account.to_account_info(),                //recipient
-                ctx.accounts.system_program.to_account_info(), //need this to call invoke as system programs own this program
-            ],
+                ctx.accounts.owner.to_account_info(),
+                lock_account.to_account_info(),       
+            ]
         )
     }
 }
@@ -101,7 +100,6 @@ pub struct Withdraw<'info> {
     pub lock_account: Account<'info, LockAccount>,
     #[account(signer)]
     pub owner: AccountInfo<'info>,
-    pub lockProgram: ProgramAccount<'info, LockAccount>,
     pub system_program: Program<'info, System>,
 
 }
