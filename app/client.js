@@ -33,16 +33,23 @@ class AnchorClient {
 		const [lock_account, bump] = await anchor.web3.PublicKey.findProgramAddress(
 			[this.provider.wallet.publicKey.toBuffer()],
 			this.program.programId
-		  )		//const utf8encoded = Buffer.from(bio);
+		  )	
+		  const [lock_escorw_account, escrow_bump] = await anchor.web3.PublicKey.findProgramAddress(
+			[this.provider.wallet.publicKey.toBuffer(),"escrow"],
+			this.program.programId
+		  )	
+		//const utf8encoded = Buffer.from(bio);
 		// Execute the RPC call
 		console.log(lock_account)
 		const tx = await this.program.rpc.initialize(		
 			bump,	
+			escrow_bump,
 			authority.publicKey,
 			//new BN(anchor.web3.LAMPORTS_PER_SOL),
 			{
 			accounts: {
-				lockAccount: lock_account, // publickey for our new account
+				lockAccount: lock_account,
+				lockEscrowAccount: lock_escorw_account, // publickey for our new account
 				owner: this.provider.wallet.publicKey, // publickey of our anchor wallet provider
 				systemProgram: SystemProgram.programId // just for Anchor reference
 			},
