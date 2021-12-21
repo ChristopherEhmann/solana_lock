@@ -18,6 +18,8 @@ pub mod lock {
         lock_account.owner = *ctx.accounts.owner.key;
         lock_account.locked = true;
         lock_account.bump = bump;
+        //lock_account.escrow_bump = escrow_bump;
+        //lock_account.escrow_pda = *ctx.accounts.lock_escrow_account.to_account_info().key;
         Ok(())
     }
     pub fn unlock(ctx: Context<Unlock>) -> ProgramResult {
@@ -76,7 +78,7 @@ pub mod lock {
 pub struct Initialize<'info> {
     #[account(init,
     payer=owner,
-    space=8 + 32 + 32 + 1 + 1 ,
+    space=8 + 32 + 32 + 1 + 1 + 1 + 32 ,
     seeds=[owner.key().as_ref()],
     bump=bump)
     ]
@@ -113,21 +115,25 @@ pub struct Withdraw<'info> {
 
 #[derive(Accounts)]
 pub struct Payin<'info> {
-    #[account(mut, has_one = owner)]
+    #[account( has_one = owner)]
     pub lock_account: Account<'info, LockAccount>,
     #[account(signer)]
     pub owner: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
+    #[account( mut)]
+    pub lock_escrow_account: Account<'info, LockAccount>
 }
+
 
 #[account]
 pub struct LockAccount {
     pub owner: Pubkey,
     pub authority: Pubkey,
     pub locked: bool,
-    bump: u8,
+    pub bump: u8,
+    pub escrow_bump: u8,
+    pub escrow_pda: Pubkey
 }
-
 
 
 #[account]
