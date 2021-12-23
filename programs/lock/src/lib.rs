@@ -18,8 +18,8 @@ pub mod lock {
         lock_account.owner = *ctx.accounts.owner.key;
         lock_account.locked = true;
         lock_account.bump = bump;
-        //lock_account.escrow_bump = escrow_bump;
-        //lock_account.escrow_pda = *ctx.accounts.lock_escrow_account.to_account_info().key;
+        lock_account.escrow_bump = escrow_bump;
+        lock_account.escrow_pda = *ctx.accounts.lock_escrow_account.to_account_info().key;
         Ok(())
     }
     pub fn unlock(ctx: Context<Unlock>) -> ProgramResult {
@@ -34,8 +34,10 @@ pub mod lock {
     }
     pub fn withdraw(ctx: Context<Withdraw>, lamports: u64) -> ProgramResult {
         let lock_account = &mut ctx.accounts.lock_account;
+        let lock_escrow_account = &mut ctx.accounts.lock_escrow_account;
+
         let transfer_instruction = &transfer(
-            &lock_account.to_account_info().key,
+            &lock_escrow_account.to_account_info().key,
             &lock_account.owner,
             lamports,
         );
@@ -44,22 +46,22 @@ pub mod lock {
         invoke_signed(
             transfer_instruction,
             &[
-                lock_account.to_account_info(),
+                lock_escrow_account.to_account_info(),
                 ctx.accounts.owner.to_account_info(),
-                ctx.accounts.system_program.to_account_info()
             ],
             &[&[
-                ctx.accounts.owner.to_account_info().key.as_ref(),
-                &[lock_account.bump],
+                ctx.accounts.owner.to_account_info().key.as_ref(), b"escrow",
+                &[lock_account.escrow_bump],
             ]],
         )
     }
 
     pub fn payin(ctx: Context<Payin>, lamports: u64) -> ProgramResult {
         let lock_account = &mut ctx.accounts.lock_account;
+        let lock_escrow_account = &mut ctx.accounts.lock_escrow_account;
         let transfer_instruction = &transfer(
             &lock_account.owner,
-            &lock_account.to_account_info().key,
+            &lock_escrow_account.to_account_info().key,
             lamports,
         );
         msg!("Paying in {}", lamports);
@@ -67,7 +69,7 @@ pub mod lock {
             transfer_instruction,
             &[
                 ctx.accounts.owner.to_account_info(),
-                lock_account.to_account_info(),       
+                lock_escrow_account.to_account_info(),       
             ]
         )
     }
@@ -92,7 +94,7 @@ pub struct Initialize<'info> {
         seeds=[owner.key().as_ref(),b"escrow"],
         bump=escrow_bump)
         ]
-        pub lock_escrow_account: Account<'info, LockEscrowAccount>,
+    pub lock_escrow_account: Account<'info, LockEscrowAccount>,
 }
 
 #[derive(Accounts)]
@@ -105,23 +107,25 @@ pub struct Unlock<'info> {
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
-    #[account(mut,constraint = !lock_account.locked)]
+    #[account(mut,has_one=owner, constraint = !lock_account.locked, close=owner)]
     pub lock_account: Account<'info, LockAccount>,
-    #[account(signer)]
+    #[account(mut, signer)]
     pub owner: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
-
+    #[account( mut, constraint = lock_account.escrow_pda == *lock_escrow_account.to_account_info().key, close=owner)]
+    //#[account( mut)]
+    pub lock_escrow_account: Account<'info, LockEscrowAccount>
 }
 
 #[derive(Accounts)]
 pub struct Payin<'info> {
-    #[account( has_one = owner)]
+    #[account(has_one = owner)]
     pub lock_account: Account<'info, LockAccount>,
     #[account(signer)]
     pub owner: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
-    #[account( mut)]
-    pub lock_escrow_account: Account<'info, LockAccount>
+    #[account( mut, constraint = lock_account.escrow_pda == *lock_escrow_account.to_account_info().key)]
+    pub lock_escrow_account: Account<'info, LockEscrowAccount>
 }
 
 

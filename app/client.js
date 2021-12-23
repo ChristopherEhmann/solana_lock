@@ -41,6 +41,8 @@ class AnchorClient {
 		//const utf8encoded = Buffer.from(bio);
 		// Execute the RPC call
 		console.log(lock_account)
+		console.log(lock_escrow_account, escrow_bump)
+
 		const tx = await this.program.rpc.initialize(		
 			bump,	
 			escrow_bump,
@@ -63,26 +65,44 @@ class AnchorClient {
 	}
 
 	async payin( lock_account_pda) {
+
+		const [lock_account, bump] = await anchor.web3.PublicKey.findProgramAddress(
+			[this.provider.wallet.publicKey.toBuffer()],
+			this.program.programId
+		  )	
+		  const [lock_escrow_account, escrow_bump] = await anchor.web3.PublicKey.findProgramAddress(
+			[this.provider.wallet.publicKey.toBuffer(),"escrow"],
+			this.program.programId
+		  )	
+		console.log(lock_escrow_account, escrow_bump)
+
 		const tx = await this.program.rpc.payin(	
 			new BN(anchor.web3.LAMPORTS_PER_SOL),
 			{
 			accounts: {
 				lockAccount: lock_account_pda, // publickey for our new account
+				lockEscrowAccount: lock_escrow_account,
 				owner: this.provider.wallet.publicKey, 
 				systemProgram: SystemProgram.programId // just for Anchor reference
 			},
-			signers: [this.provider.wallet.keypair]// acc must sign this Tx, to prove we have the private key too
+			signers: [this.provider.wallet.keypair]// acc must sign thi		s Tx, to prove we have the private key too
 		});
 		console.log(
 			`Successfully payed in lock ID: ${lock_account_pda}`
 		);
 	}
 	async withdraw( lock_account_pda) {
+
+		const [lock_escrow_account, escrow_bump] = await anchor.web3.PublicKey.findProgramAddress(
+			[this.provider.wallet.publicKey.toBuffer(),"escrow"],
+			this.program.programId
+		  )	
 		const tx = await this.program.rpc.withdraw(		
 			new BN(anchor.web3.LAMPORTS_PER_SOL),
 			{
 			accounts: {
 				lockAccount: lock_account_pda, // publickey for our new account
+				lockEscrowAccount: lock_escrow_account,
 				owner: this.provider.wallet.publicKey, 
 				lockProgram: lock_account_pda ,// just for Anchor reference,
 				systemProgram: SystemProgram.programId // just for Anchor reference
