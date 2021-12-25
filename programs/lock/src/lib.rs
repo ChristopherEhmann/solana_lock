@@ -36,24 +36,9 @@ pub mod lock {
         let lock_account = &mut ctx.accounts.lock_account;
         let lock_escrow_account = &mut ctx.accounts.lock_escrow_account;
 
-        let transfer_instruction = &transfer(
-            &lock_escrow_account.to_account_info().key,
-            &lock_account.owner,
-            lamports,
-        );
-        msg!("Withdrawing {}", lamports);
-
-        invoke_signed(
-            transfer_instruction,
-            &[
-                lock_escrow_account.to_account_info(),
-                ctx.accounts.owner.to_account_info(),
-            ],
-            &[&[
-                ctx.accounts.owner.to_account_info().key.as_ref(), b"escrow",
-                &[lock_account.escrow_bump],
-            ]],
-        )
+        **lock_escrow_account.to_account_info().try_borrow_mut_lamports()? -= lamports;
+        **ctx.accounts.owner.to_account_info().try_borrow_mut_lamports()? += lamports;
+        Ok(())
     }
 
     pub fn payin(ctx: Context<Payin>, lamports: u64) -> ProgramResult {
@@ -112,7 +97,7 @@ pub struct Withdraw<'info> {
     #[account(mut, signer)]
     pub owner: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
-    #[account( mut, constraint = lock_account.escrow_pda == *lock_escrow_account.to_account_info().key, close=owner)]
+    #[account( mut, constraint = lock_account.escrow_pda == *lock_escrow_account.to_account_info().key)]
     //#[account( mut)]
     pub lock_escrow_account: Account<'info, LockEscrowAccount>
 }
